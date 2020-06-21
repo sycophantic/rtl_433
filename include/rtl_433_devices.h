@@ -161,7 +161,7 @@
     DECL(visonic_powercode) \
     DECL(eurochron_efth800) \
     DECL(cotech_36_7959) \
-
+    DECL(ambient_weather_tx3102) \
     /* Add new decoders here. */
 
 #define DECL(name) extern r_device name;

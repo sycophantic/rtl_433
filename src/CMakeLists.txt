@@ -160,7 +160,8 @@ add_library(r_433 STATIC
     devices/wt450.c
     devices/x10_rf.c
     devices/x10_sec.c
-)
+    devices/ambient_weather_tx3102.c
+    )
 
 if("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
     set_source_files_properties(mongoose.c PROPERTIES COMPILE_FLAGS "-Wno-format -Wno-format-security")
