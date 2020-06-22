@@ -46,16 +46,17 @@ floating pool and spa thermometer (TX-3107) and soil temperature and moisture (T
 static int ambient_weather_tx3102_decode(r_device *decoder, bitbuffer_t *bitbuffer)
 {
     data_t *data;
+    int r;
     uint8_t *b;
     char value[12];  
-    uint8_t sensor_id;
+    int channel;
     float temperature;
-    uint8_t moisture_array[16] = { 0, 7, 13, 20, 27, 33, 40, 47, 53, 60, 67, 73, 80, 87, 93, 99 }; //device has 16 values mapped from 0% to 99%
-    uint8_t moisture;
-    uint8_t battery_ok;
-    uint8_t sign;
-    uint16_t r_crc;
-    uint16_t c_crc;
+    int moisture_array[16] = { 0, 7, 13, 20, 27, 33, 40, 47, 53, 60, 67, 73, 80, 87, 93, 99 }; //device has 16 values mapped from 0% to 99%
+    int moisture;
+    int battery_ok;
+    int sign;
+    uint16_t crc;
+    uint16_t crc1;
     uint8_t dataforcrc[15];
 
     /*
@@ -70,7 +71,7 @@ static int ambient_weather_tx3102_decode(r_device *decoder, bitbuffer_t *bitbuff
             bitbuffer_printf(bitbuffer, "%s: ", __func__);
         }
 
-    b = bitbuffer->bb[0];
+    b = bitbuffer->bb[r];
 
     if (b[0] != TX3102_STARTBYTE) {
         return 0;
@@ -82,7 +83,7 @@ static int ambient_weather_tx3102_decode(r_device *decoder, bitbuffer_t *bitbuff
     if (bitbuffer->bits_per_row[0] < TX3102_BITLEN) {
         return DECODE_ABORT_LENGTH;
     }
-    r_crc = (b[7] << 8) | b[8];
+    crc1 = (b[7] << 8) | b[8];
     //there has to be a better way to do this
     dataforcrc[0] = b[9];
     dataforcrc[1] = b[10];
@@ -100,21 +101,21 @@ static int ambient_weather_tx3102_decode(r_device *decoder, bitbuffer_t *bitbuff
     dataforcrc[13] = b[22];
     dataforcrc[14] = b[23];
 
-    c_crc = crc16(dataforcrc, 15, 0x1021, 0x0000);
+    crc = crc16(dataforcrc, 15, 0x1021, 0x0000);
 
-    uint8_t c_sum = (add_bytes(dataforcrc, 15) ^ 0xFF) - b[24];
+    uint8_t c_sum = add_bytes(dataforcrc, 15) - b[24];
     if (c_sum) {
        return DECODE_FAIL_MIC;
     }
 
-    if (c_crc != r_crc) {
+    if (crc != crc1) {
 	return DECODE_FAIL_MIC;
     }
 
     sprintf(value, "%02x%02x%02x%02x%02x", b[9], b[10], b[11], b[12], b[13]); // unknown data, maybe device type and unique id?
-    sensor_id = (b[13] & 0xF);
+    channel = (b[13] & 0xF);
 
-    if (sensor_id > 7) { // channel can only be 1 to 7
+    if (channel > 7) { // channel can only be 1 to 7
 	return DECODE_FAIL_SANITY;
     }
 
@@ -132,7 +133,7 @@ static int ambient_weather_tx3102_decode(r_device *decoder, bitbuffer_t *bitbuff
     /* clang-format off */
     data = data_make(
             "model", "", DATA_STRING, "Ambient Weather TX-3102",
-	    "id", "", DATA_INT,	sensor_id,
+	    "channel", "", DATA_INT,	channel,
 	    "temperature", "", DATA_FORMAT, "%.1f C", DATA_DOUBLE, temperature,
 	    "moisture", "", DATA_FORMAT, "%.1i %%", DATA_INT, moisture,
 	    "battery", "", DATA_STRING, battery_ok ? "OK" : "LOW",
