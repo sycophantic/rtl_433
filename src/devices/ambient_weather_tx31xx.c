@@ -141,7 +141,7 @@ static int ambient_weather_tx31xx_decode(r_device *decoder, bitbuffer_t *bitbuff
              NULL);
     /* clang-format on */
     }
-    else{ //TX-3108
+    else{ //TX-3110
     moisture = ((b[14] >> 4) & 0xF) * 10 + (b[14] & 0xF) ;
     /* clang-format off */
     data = data_make(
@@ -172,7 +172,7 @@ static char *output_fields[] = {
 };
 
 r_device ambient_weather_tx31xx = {
-        .name        = "Ambient Weather TX-2103/TX-3108",
+        .name        = "Ambient Weather TX-3102/TX-3110",
         .modulation  = FSK_PULSE_PCM,
         .short_width = 130,  
         .long_width  = 130,  
