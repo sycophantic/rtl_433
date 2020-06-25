@@ -48,7 +48,6 @@ static int ambient_weather_tx3102_decode(r_device *decoder, bitbuffer_t *bitbuff
 {
     data_t *data;
     uint8_t *b;
-    char value[12];  
     uint8_t sensor_id;
     float temperature;
     uint8_t moisture_array[16] = { 0, 7, 13, 20, 27, 33, 40, 47, 53, 60, 67, 73, 80, 87, 93, 99 }; //device has 16 values mapped from 0% to 99%
@@ -86,29 +85,14 @@ static int ambient_weather_tx3102_decode(r_device *decoder, bitbuffer_t *bitbuff
         return DECODE_ABORT_LENGTH;
     }
     
-    bitbuffer_extract_bytes(bitbuffer, 0, start_pos + 24, b, 18 * 8);
+    bitbuffer_extract_bytes(bitbuffer, 0, start_pos + 24, b, 18 * 8); //remove preamble and code word
+    bitbuffer_extract_bytes(bitbuffer, 0, 16, dataforcrc, 15 * 8); //remove CRC
 
-    if (b[2]!= 0x18) { //check of family code of 0x18
+    if (b[2] != 0x18) { //check of family code of 0x18
     return 0;
     }
 
     r_crc = (b[0] << 8) | b[1];
-    //there has to be a better way to do this
-    dataforcrc[0] = b[2];
-    dataforcrc[1] = b[3];
-    dataforcrc[2] = b[4];
-    dataforcrc[3] = b[5];
-    dataforcrc[4] = b[6];
-    dataforcrc[5] = b[7];
-    dataforcrc[6] = b[8];
-    dataforcrc[7] = b[9];
-    dataforcrc[8] = b[10];
-    dataforcrc[9] = b[11];
-    dataforcrc[10] = b[12];
-    dataforcrc[11] = b[13];
-    dataforcrc[12] = b[14];
-    dataforcrc[13] = b[15];
-    dataforcrc[14] = b[16];
 
     c_crc = crc16(dataforcrc, 15, 0x1021, 0x0000);
 
@@ -121,7 +105,6 @@ static int ambient_weather_tx3102_decode(r_device *decoder, bitbuffer_t *bitbuff
 	return DECODE_FAIL_MIC;
     }
 
-    sprintf(value, "%02x%02x%02x%02x%02x", b[9], b[10], b[11], b[12], b[13]); // unknown data, maybe device type and unique id?
     sensor_id = (b[6] & 0xF);
 
     if (sensor_id > 7) { // channel can only be 1 to 7
@@ -146,7 +129,6 @@ static int ambient_weather_tx3102_decode(r_device *decoder, bitbuffer_t *bitbuff
 	    "temperature", "", DATA_FORMAT, "%.1f C", DATA_DOUBLE, temperature,
 	    "moisture", "", DATA_FORMAT, "%.1i %%", DATA_INT, moisture,
 	    "battery", "", DATA_STRING, battery_ok ? "OK" : "LOW",
-            "data",  "", DATA_STRING,    value,
             "mic", "Integrity", DATA_STRING, "CRC",
              NULL);
     /* clang-format on */
@@ -162,7 +144,6 @@ static char *output_fields[] = {
 	"channel",
 	"temperature",
 	"battery",
-        "data",
 	"mic",
          NULL,
 };
