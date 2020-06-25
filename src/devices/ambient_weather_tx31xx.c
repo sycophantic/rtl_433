@@ -1,5 +1,6 @@
 /** @file
-    Decoder for Ambient Weather TX-3102 (FCC ID: 2ALZ7-3102C1708).
+    Decoder for Ambient Weather TX-3102 (FCC ID: 2ALZ7-3102C1708) and 
+    Ambient Weather TX-3110 (FCC ID: 2ALZ7-3110B1706).
 
     Copyright (C) 2020 Daniel J. Grinkevich
 
@@ -42,15 +43,15 @@ floating pool and spa thermometer (TX-3107) and soil temperature and moisture (T
 
 #include "decoder.h"
 
-#define TX3102_BITLEN  168
+#define TX31XX_BITLEN  168
 
-static int ambient_weather_tx3102_decode(r_device *decoder, bitbuffer_t *bitbuffer)
+static int ambient_weather_tx31xx_decode(r_device *decoder, bitbuffer_t *bitbuffer)
 {
     data_t *data;
     uint8_t *b;
     uint8_t sensor_id;
     float temperature;
-    uint8_t moisture_array[16] = { 0, 7, 13, 20, 27, 33, 40, 47, 53, 60, 67, 73, 80, 87, 93, 99 }; //device has 16 values mapped from 0% to 99%
+    uint8_t moisture_array[16] = { 0, 7, 13, 20, 27, 33, 40, 47, 53, 60, 67, 73, 80, 87, 93, 99 }; // TX-3102 has 16 values mapped from 0% to 99%
     uint8_t moisture;
     uint8_t battery_ok;
     uint8_t sign;
@@ -78,10 +79,10 @@ static int ambient_weather_tx3102_decode(r_device *decoder, bitbuffer_t *bitbuff
     return DECODE_ABORT_EARLY;
     }
     if (decoder->verbose) {
-        fprintf(stderr, "%s: TX-3102 detected, buffer is %d bits length\n", __func__, bitbuffer->bits_per_row[0]);
+        fprintf(stderr, "%s: TX-3102/TX-3108 detected, buffer is %d bits length\n", __func__, bitbuffer->bits_per_row[0]);
     }
 
-    if (bitbuffer->bits_per_row[0] < TX3102_BITLEN) {
+    if (bitbuffer->bits_per_row[0] < TX31XX_BITLEN) {
         return DECODE_ABORT_LENGTH;
     }
     
@@ -91,6 +92,12 @@ static int ambient_weather_tx3102_decode(r_device *decoder, bitbuffer_t *bitbuff
     if (b[2] != 0x18) { //check of family code of 0x18
     return 0;
     }
+
+    if (b[3] == 0x70 || b[3] == 0x30) {
+    }
+    else {
+    return 0;
+    }	    
 
     r_crc = (b[0] << 8) | b[1];
 
@@ -120,19 +127,33 @@ static int ambient_weather_tx3102_decode(r_device *decoder, bitbuffer_t *bitbuff
     else {
     	temperature = ((b[12] >> 4) & 0xF) * 10 + (b[12] & 0xF) + ((b[13] >> 4) & 0xF) * 0.1;
     }
-    moisture = moisture_array[(((b[14] >> 4) & 0xF) * 10 + (b[14] & 0xF)) - 1];
 
+    if (b[3] == 0x70) { //TX-3102
+    moisture = moisture_array[(((b[14] >> 4) & 0xF) * 10 + (b[14] & 0xF)) - 1];
     /* clang-format off */
     data = data_make(
             "model", "", DATA_STRING, "Ambient Weather TX-3102",
+            "id", "", DATA_INT, sensor_id,
+            "temperature", "", DATA_FORMAT, "%.1f C", DATA_DOUBLE, temperature,
+            "humidity", "", DATA_FORMAT, "%.1i %%", DATA_INT, moisture,
+            "battery", "", DATA_STRING, battery_ok ? "OK" : "LOW",
+            "mic", "Integrity", DATA_STRING, "CRC",
+             NULL);
+    /* clang-format on */
+    }
+    else{ //TX-3108
+    moisture = ((b[14] >> 4) & 0xF) * 10 + (b[14] & 0xF) ;
+    /* clang-format off */
+    data = data_make(
+            "model", "", DATA_STRING, "Ambient Weather TX-3108",
 	    "id", "", DATA_INT,	sensor_id,
 	    "temperature", "", DATA_FORMAT, "%.1f C", DATA_DOUBLE, temperature,
-	    "moisture", "", DATA_FORMAT, "%.1i %%", DATA_INT, moisture,
+	    "humidity", "", DATA_FORMAT, "%.1i %%", DATA_INT, moisture,
 	    "battery", "", DATA_STRING, battery_ok ? "OK" : "LOW",
             "mic", "Integrity", DATA_STRING, "CRC",
              NULL);
     /* clang-format on */
-
+    }
     decoder_output_data(decoder, data);
 
     // Return 1 if message successfully decoded
@@ -143,18 +164,20 @@ static char *output_fields[] = {
         "model",
 	"channel",
 	"temperature",
+	"moisture",
+	"humidity",
 	"battery",
 	"mic",
          NULL,
 };
 
-r_device ambient_weather_tx3102 = {
-        .name        = "Ambient Weather TX-2103",
+r_device ambient_weather_tx31xx = {
+        .name        = "Ambient Weather TX-2103/TX-3108",
         .modulation  = FSK_PULSE_PCM,
         .short_width = 130,  
         .long_width  = 130,  
         .reset_limit = 7000,
-        .decode_fn   = &ambient_weather_tx3102_decode,
+        .decode_fn   = &ambient_weather_tx31xx_decode,
         .disabled    = 0,
         .fields      = output_fields,
 };

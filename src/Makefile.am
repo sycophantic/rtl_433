@@ -159,6 +159,6 @@ rtl_433_SOURCES      = abuf.c \
                        devices/wt450.c \
                        devices/x10_rf.c \
                        devices/x10_sec.c \
-		       devices/ambient_weather_tx3102.c
+		       devices/ambient_weather_tx31xx.c
 
 rtl_433_LDADD        = $(LIBRTLSDR) $(LIBM)
